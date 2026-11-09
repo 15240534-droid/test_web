@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今天吃什麼？｜日常選餐小幫手</title>
+<style>
+:root {
+  --bg:#f7f5ef; --card:#fff; --ink:#263238; --muted:#68757a;
+  --accent:#df7548; --accent-dark:#bd5831; --line:#e8e4dc;
+  --soft:#fff4ed; --green:#527b62;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;min-height:100vh;display:grid;place-items:center;
+  background:linear-gradient(145deg,#f8eee4,#eef3eb);color:var(--ink);
+  font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif}
+.app{width:min(100%,680px);background:var(--card);border-radius:24px;padding:clamp(22px,5vw,38px);
+  box-shadow:0 18px 55px #40302015}
+header{text-align:center;margin-bottom:24px}
+h1{font-size:clamp(1.7rem,5vw,2.25rem);margin:0 0 8px}
+.subtitle{color:var(--muted);margin:0}
+h2{font-size:1rem;margin:0 0 12px}
+.section{margin-top:24px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 15px;
+  color:var(--ink);font:inherit;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--soft);border-color:var(--accent);color:var(--accent-dark);font-weight:700}
+textarea{width:100%;min-height:150px;padding:14px;border:1px solid var(--line);border-radius:14px;
+  font:inherit;line-height:1.8;resize:vertical}
+textarea:focus,input:focus-visible,button:focus-visible{outline:3px solid #e9b49c;outline-offset:2px}
+.hint{font-size:.88rem;color:var(--muted);margin:8px 0 0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.92rem}
+.primary{width:100%;border:0;border-radius:999px;background:var(--accent);color:#fff;padding:15px;
+  margin-top:20px;font:inherit;font-size:1.08rem;font-weight:750;cursor:pointer}
+.primary:hover{background:var(--accent-dark)}
+.secondary{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 14px;
+  font:inherit;cursor:pointer;color:var(--ink)}
+.result{margin-top:18px;padding:22px;border:2px dashed #efc7b2;border-radius:18px;background:var(--soft);
+  text-align:center;min-height:138px;display:grid;align-content:center;gap:8px}
+.result small{color:var(--muted);font-weight:650}
+#result{font-size:clamp(1.6rem,6vw,2.2rem);font-weight:850;color:var(--accent-dark);overflow-wrap:anywhere}
+#message{font-size:.92rem;color:#a33d32;min-height:1.3em}
+.history{display:flex;gap:8px;flex-wrap:wrap;padding:0;margin:0;list-style:none}
+.history li{background:#f3f5f1;border-radius:10px;padding:7px 11px;font-size:.9rem}
+.empty{color:var(--muted);font-size:.9rem}
+@media(max-width:480px){body{padding:12px}.app{border-radius:18px}.row{align-items:flex-start}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <h1>🍱 今天吃什麼？</h1>
+    <p class="subtitle">快速決定一餐，把選擇困難交給抽籤！</p>
+  </header>
+
+  <section>
+    <h2>1. 今天想吃哪一類？</h2>
+    <div class="tabs" id="categories">
+      <button class="chip" data-category="全部" aria-pressed="true">全部</button>
+      <button class="chip" data-category="飯類" aria-pressed="false">🍚 飯類</button>
+      <button class="chip" data-category="麵類" aria-pressed="false">🍜 麵類</button>
+      <button class="chip" data-category="小吃" aria-pressed="false">🥟 小吃</button>
+      <button class="chip" data-category="清爽" aria-pressed="false">🥗 清爽</button>
+      <button class="chip" data-category="快速" aria-pressed="false">⚡ 快速</button>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="row">
+      <h2>2. 可選餐點（每行一個）</h2>
+      <button class="secondary" id="restore" type="button">還原範例清單</button>
+    </div>
+    <textarea id="options" aria-label="可選餐點清單">便當
+滷肉飯
+雞腿飯
+咖哩飯
+牛肉麵
+乾麵
+鍋燒意麵
+水餃
+鍋貼
+滷味
+飯糰
+三明治
+沙拉</textarea>
+    <p class="hint">可自行增刪餐點；空白行會略過，相同餐點只計算一次。</p>
+  </section>
+
+  <section class="section row">
+    <label class="check"><input type="checkbox" id="avoidRepeat" checked> 盡量不要和上一抽相同</label>
+    <button class="secondary" id="clearHistory" type="button">清除抽選紀錄</button>
+  </section>
+
+  <button class="primary" id="draw" type="button">🎲 幫我選一餐</button>
+
+  <section class="result" aria-live="polite" aria-atomic="true">
+    <small>今天的餐點建議</small>
+    <div id="result">等你來抽籤！</div>
+    <div id="message"></div>
+  </section>
+
+  <section class="section">
+    <div class="row">
+      <h2>最近抽過</h2>
+      <span class="hint">只保留本次開啟期間的紀錄</span>
+    </div>
+    <ul class="history" id="history"><li class="empty">還沒有抽選紀錄</li></ul>
+  </section>
+</main>
+
+<script>
+const defaults = `便當
+滷肉飯
+雞腿飯
+咖哩飯
+牛肉麵
+乾麵
+鍋燒意麵
+水餃
+鍋貼
+滷味
+飯糰
+三明治
+沙拉`;
+
+const categoryItems = {
+  "全部": null,
+  "飯類": ["便當","滷肉飯","雞腿飯","咖哩飯","炒飯","燴飯","飯糰"],
+  "麵類": ["牛肉麵","乾麵","鍋燒意麵","炒麵","米粉湯","拉麵"],
+  "小吃": ["水餃","鍋貼","滷味","鹹酥雞","蚵仔煎","肉圓"],
+  "清爽": ["沙拉","健康餐盒","湯麵","涼麵","越南河粉"],
+  "快速": ["飯糰","三明治","便利商店","自助餐","滷味"]
+};
+
+const input = document.getElementById("options");
+const result = document.getElementById("result");
+const message = document.getElementById("message");
+const historyList = document.getElementById("history");
+const avoidRepeat = document.getElementById("avoidRepeat");
+let category = "全部";
+let previousPick = "";
+const history = [];
+
+function getOptions() {
+  return [...new Set(input.value.split(/\r?\n/).map(x => x.trim()).filter(Boolean))];
+}
+
+document.getElementById("categories").addEventListener("click", event => {
+  const button = event.target.closest("button[data-category]");
+  if (!button) return;
+  category = button.dataset.category;
+  document.querySelectorAll("#categories button").forEach(item => {
+    item.setAttribute("aria-pressed", String(item === button));
+  });
+  if (category !== "全部") {
+    const picks = categoryItems[category];
+    input.value = picks.join("\n");
+  } else {
+    input.value = defaults;
+  }
+  message.textContent = "";
+});
+
+document.getElementById("restore").addEventListener("click", () => {
+  category = "全部";
+  input.value = defaults;
+  document.querySelectorAll("#categories button").forEach(item => {
+    item.setAttribute("aria-pressed", String(item.dataset.category === "全部"));
+  });
+  message.textContent = "已還原範例餐點。";
+});
+
+document.getElementById("draw").addEventListener("click", () => {
+  const options = getOptions();
+  message.textContent = "";
+
+  if (options.length === 0) {
+    result.textContent = "請先輸入至少一個選項";
+    message.textContent = "清單目前是空的，輸入餐點後再試一次。";
+    return;
+  }
+
+  let candidates = options;
+  if (avoidRepeat.checked && options.length > 1 && options.includes(previousPick)) {
+    candidates = options.filter(item => item !== previousPick);
+  }
+
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  previousPick = pick;
+  result.textContent = pick;
+
+  history.unshift(pick);
+  if (history.length > 5) history.pop();
+  renderHistory();
+});
+
+function renderHistory() {
+  historyList.innerHTML = "";
+  if (history.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "還沒有抽選紀錄";
+    historyList.appendChild(li);
+    return;
+  }
+  history.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.textContent = `${index + 1}. ${item}`;
+    historyList.appendChild(li);
+  });
+}
+
+document.getElementById("clearHistory").addEventListener("click", () => {
+  history.length = 0;
+  previousPick = "";
+  renderHistory();
+  message.textContent = "抽選紀錄已清除。";
+});
+</script>
+</body>
+</html>
